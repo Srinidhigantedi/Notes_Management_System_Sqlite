@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<style>
+    .about-section {
+        padding: 60px 0;
+    }
+
+    .about-card {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        transition: 0.3s ease;
+    }
+
+    .about-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .about-icon {
+        font-size: 60px;
+        margin-bottom: 20px;
+    }
+
+    .feature-box {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 20px;
+        margin-top: 20px;
+        text-align: center;
+        height: 100%;
+    }
+
+    .feature-box h5 {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+
+    .about-title {
+        color: #0d6efd;
+        font-weight: bold;
+    }
+</style>
+
+<div class="container about-section">
+
+    <div class="row justify-content-center">
+
+        <div class="col-lg-10">
+
+            <div class="about-card">
+
+                <div class="text-center">
+                    <div class="about-icon">📝</div>
+
+                    <h1 class="about-title">
+                        About Notes App
+                    </h1>
+
+                    <p class="lead text-muted mt-3">
+                        A simple and secure platform to manage your personal notes
+                        anytime and anywhere.
+                    </p>
+                </div>
+
+                <hr class="my-4">
+
+                <p class="fs-5">
+                    The <strong>Notes Management System</strong> is built using
+                    <strong>Flask</strong>, <strong>MySQL</strong>, and
+                    <strong>Bootstrap</strong> to provide a fast, secure,
+                    and user-friendly note-taking experience.
+                </p>
+
+                <p class="fs-5">
+                    Users can create, edit, update, and delete notes securely,
+                    helping them organize ideas, tasks, and important information
+                    in one convenient place.
+                </p>
+
+                <div class="row mt-4">
+
+                    <div class="col-md-4 mb-3">
+                        <div class="feature-box">
+                            <h5>🔒 Secure</h5>
+                            <p>Your notes are protected with user authentication.</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="feature-box">
+                            <h5>⚡ Fast</h5>
+                            <p>Quickly create and manage notes with ease.</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="feature-box">
+                            <h5>📱 Responsive</h5>
+                            <p>Works smoothly on desktop, tablet, and mobile.</p>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
