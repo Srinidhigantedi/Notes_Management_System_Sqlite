@@ -13,45 +13,90 @@
 <body class="bg-light d-flex flex-column min-vh-100">
 
   <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark mb-4">
-    <div class="container">
-      <a class="navbar-brand" href="{{ url_for('viewall') }}">📝 Notes App</a>
+<nav class="navbar navbar-expand-lg navbar-dark mb-4">
+  <div class="container">
+    <a class="navbar-brand" href="{{ url_for('viewall') }}">📝 Notes App</a>
 
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
 
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav ms-auto align-items-center">
-          {% if session.get('username') %}
-            <li class="nav-item me-2">
-              <span class="nav-link text-white-50">Hi, {{ session.get('username') }}</span>
-            </li>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto align-items-center">
+        {% if session.get('username') %}
+          <li class="nav-item me-2">
+            <a class="nav-link" href="{{ url_for('addnote') }}">Add Note</a>
+          </li>
 
-            <li class="nav-item me-2">
-              <a class="nav-link" href="{{ url_for('addnote') }}">Add Note</a>
-            </li>
+          <!-- Profile Dropdown (replaces "Hi, username" + Logout) -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2 profile-avatar-btn"
+               href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
 
-            <!-- ✅ LOGOUT BUTTON -->
-            <li class="nav-item">
-              <a class="btn btn-logout" href="{{ url_for('logout') }}">
-                Logout
-              </a>
-            </li>
+              {% if session.get('profile_pic') %}
+                <img src="{{ url_for('static', filename='uploads/' + session.get('profile_pic')) }}"
+                     class="profile-avatar-img" alt="Profile">
+              {% else %}
+                <div class="profile-avatar-placeholder">
+                  {{ session.get('username')[0].upper() }}
+                </div>
+              {% endif %}
 
-          {% else %}
-            <li class="nav-item me-2">
-              <a class="nav-link" href="{{ url_for('login') }}">Login</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('register') }}">Register</a>
-            </li>
-          {% endif %}
-        </ul>
-      </div>
+              <span class="nav-greeting">{{ session.get('username') }}</span>
+            </a>
+
+            <ul class="dropdown-menu dropdown-menu-end profile-dropdown">
+              <!-- Header with pic + name -->
+              <li class="profile-dropdown-header">
+                <div class="profile-pic-large">
+                  {% if session.get('profile_pic') %}
+                    <img src="{{ url_for('static', filename='uploads/' + session.get('profile_pic')) }}"
+                         class="profile-pic-large-img" alt="Profile">
+                  {% else %}
+                    <div class="profile-pic-large-placeholder">
+                      {{ session.get('username')[0].upper() }}
+                    </div>
+                  {% endif %}
+                </div>
+                <div class="profile-name">{{ session.get('username') }}</div>
+                <div class="profile-email">{{ session.get('email', '') }}</div>
+              </li>
+
+              <li><hr class="dropdown-divider profile-divider"></li>
+
+              <li>
+                <a class="dropdown-item profile-menu-item" href="{{ url_for('profile') }}">
+                  👤 My Profile
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item profile-menu-item" href="{{ url_for('edit_profile') }}">
+                  ✏️ Edit Profile
+                </a>
+              </li>
+
+              <li><hr class="dropdown-divider profile-divider"></li>
+
+              <li>
+                <a class="dropdown-item profile-menu-item text-danger" href="{{ url_for('logout') }}">
+                  🚪 Logout
+                </a>
+              </li>
+            </ul>
+          </li>
+
+        {% else %}
+          <li class="nav-item me-2">
+            <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('register') }}">Register</a>
+          </li>
+        {% endif %}
+      </ul>
     </div>
-  </nav>
-
+  </div>
+</nav>
   <!-- Page Container -->
   <main class="container mb-5 flex-grow-1">
     

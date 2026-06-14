@@ -3,12 +3,32 @@
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-md-8 col-lg-7">
-    <div class="card shadow-sm">
+    <div class="card shadow-sm {% if note.is_pinned %}pinned-card{% endif %}">
       <div class="card-body p-4">
-        <h3>{{ note.title }}</h3>
+
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <h3 class="mb-0">{{ note.title }}</h3>
+          {% if note.is_pinned %}
+            <span class="pin-badge">📌 Pinned</span>
+          {% endif %}
+        </div>
+
         <p class="mt-3">{{ note.content }}</p>
         <p class="text-muted small">Created at: {{ note.created_at }}</p>
-        <a class="btn btn-secondary mt-3" href="{{ url_for('viewall') }}">Back</a>
+
+        <div class="d-flex gap-2 mt-3">
+          <a class="btn btn-secondary" href="{{ url_for('viewall') }}">Back</a>
+
+          <!-- Pin / Unpin toggle -->
+          <form action="/pinnote/{{ note.id }}" method="POST" class="d-inline">
+            {% if note.is_pinned %}
+              <button class="btn btn-unpin" type="submit">📌 Unpin</button>
+            {% else %}
+              <button class="btn btn-pin" type="submit">📌 Pin this note</button>
+            {% endif %}
+          </form>
+        </div>
+
       </div>
     </div>
   </div>

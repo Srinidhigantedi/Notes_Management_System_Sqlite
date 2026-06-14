@@ -6,12 +6,19 @@ from flask import Flask, render_template, request, redirect, session, flash, url
 import pymysql
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mail import Mail, Message
-
+import os
+from werkzeug.utils import secure_filename
 # --------------------
 # App Initialization
 # --------------------
 app = Flask(__name__)
 app.secret_key = "myverysecretkey"  # change this in production
+
+# Configure upload folder
+UPLOAD_FOLDER = os.path.join('static', 'uploads')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Mail Configuration
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -68,31 +75,34 @@ def register():
         if not username or not email or not password:
             flash("Please fill all fields.", "danger")
             return redirect('/register')
-        print("Database connection established. hiiiiiiiiiiiiiiiiiiiiii")
+        
         # Hash the password before saving
         hashed_pw = generate_password_hash(password)
-        print("Database connection established. hwey")
+  
         conn = get_db_connection()
         cur = conn.cursor()
-        print("Database connection established.")
+      
         # Check if username already exists
         cur.execute("SELECT id FROM users WHERE username = %s", (username,))
         exists = cur.fetchone()
-        print("Database connection established-1")
+        
         if exists:
             # Close connection and inform user
             cur.close()
             conn.close()
             flash("Username already taken. Choose another.", "danger")
             return redirect('/register')
-        print("Database connection established-2")
+      
         # Insert new user into users table
         cur.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)",
                     (username, email, hashed_pw))
         conn.commit()
         cur.close()
         conn.close()
-        print("Database connection established-3")
+
+        # Send registration confirmation email
+        msg = Message('Registration Confirmation', recipients=[email])
+        msg.body = f"Hello {username},\n\nYou have successfully registered for the Notes App. Welcome!\n\nBest regards,\nNotes App Team"
 
         flash("Registration successful! You can now log in.", "success")
         return redirect('/login')
@@ -123,10 +133,12 @@ def login():
 
         cur.close()
         conn.close()
-
+ 
         if user and check_password_hash(user[3], password):
             session['user_id'] = user[0]
             session['username'] = user[1]
+            session['email']    = user[2]
+            session['profile_pic'] = user[4] if user[4] else None  # profile_pic is column index 4
             flash(f"Welcome, {user[1]}!", "success")
             return redirect('/viewall')
         else:
@@ -249,28 +261,34 @@ def addnote():
 # --------------------
 @app.route('/viewall')
 def viewall():
-    # Ensure user logged in
     if 'user_id' not in session:
         return redirect('/login')
 
     user_id = session['user_id']
+    sort = request.args.get('sort', 'newest')  # default newest
+    order = "DESC" if sort == 'newest' else "ASC"
+
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id, title, content, created_at FROM notes WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
+    cur.execute(f"""
+        SELECT id, title, content, created_at, is_pinned
+        FROM notes WHERE user_id = %s
+        ORDER BY is_pinned DESC, created_at {order}
+    """, (user_id,))
     rows = cur.fetchall()
 
     notes = []
     for row in rows:
-       notes.append({
-        "id": row[0],
-        "title": row[1],
-        "content": row[2],
-        "created_at": row[3]
-    })
+        notes.append({
+            "id": row[0],
+            "title": row[1],
+            "content": row[2],
+            "created_at": row[3],
+            "is_pinned": row[4]
+        })
     cur.close()
     conn.close()
-
-    return render_template('viewnotes.html', notes=notes)
+    return render_template('viewnotes.html', notes=notes, sort=sort)
 
 # --------------------
 # View Single Note (READ ONE) - restricted
@@ -283,27 +301,19 @@ def viewnotes(note_id):
     user_id = session['user_id']
     conn = get_db_connection()
     cur = conn.cursor()
-    # Select note only if it belongs to current user
-    cur.execute("SELECT id, title, content, created_at FROM notes WHERE id = %s AND user_id = %s", (note_id, user_id))
+    cur.execute("""SELECT id, title, content, created_at, is_pinned
+                   FROM notes WHERE id = %s AND user_id = %s""",
+                (note_id, user_id))
     row = cur.fetchone()
-
-    if row:
-        note = {
-          "id": row[0],
-          "title": row[1],
-          "content": row[2],
-          "created_at": row[3]
-    }
-    else:
-        note = None
     cur.close()
     conn.close()
 
-    if not note:
-        # Either note doesn't exist or doesn't belong to the user
+    if not row:
         flash("You don't have access to this note.", "danger")
         return redirect('/viewall')
 
+    note = {"id": row[0], "title": row[1], "content": row[2],
+            "created_at": row[3], "is_pinned": row[4]}
     return render_template('singlenote.html', note=note)
 
 # --------------------
@@ -421,6 +431,83 @@ def search():
 
     # reuse SAME page (better UX)
     return render_template('viewnotes.html', notes=notes, search_query=query)
+
+
+# ------ filename -----
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/profile')
+def profile():
+    if 'user_id' not in session:
+        return redirect('/login')
+    return render_template('profile.html')
+
+@app.route('/edit_profile', methods=['GET', 'POST'])
+def edit_profile():
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    if request.method == 'POST':
+        username = request.form['username'].strip()
+        email    = request.form['email'].strip()
+        user_id  = session['user_id']
+        file     = request.files.get('profile_pic')
+
+        conn = get_db_connection()
+        cur  = conn.cursor()
+
+        # Handle image upload
+        if file and file.filename != '' and allowed_file(file.filename):
+            filename = secure_filename(f"user_{user_id}_{file.filename}")
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            cur.execute("UPDATE users SET username=%s, email=%s, profile_pic=%s WHERE id=%s",
+                        (username, email, filename, user_id))
+            session['profile_pic'] = filename
+        else:
+            cur.execute("UPDATE users SET username=%s, email=%s WHERE id=%s",
+                        (username, email, user_id))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        # Update session so navbar refreshes instantly
+        session['username'] = username
+        session['email']    = email
+
+        flash("Profile updated successfully!", "success")
+        return redirect('/profile')
+
+    return render_template('edit_profile.html')    
+
+
+# Pin/Unpin Note (UPDATE is_pinned) - restricted
+@app.route('/pinnote/<int:note_id>', methods=['POST'])
+def pinnote(note_id):
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Check current pin status
+    cur.execute("SELECT is_pinned FROM notes WHERE id = %s AND user_id = %s",
+                (note_id, user_id))
+    row = cur.fetchone()
+
+    if row:
+        new_status = 0 if row[0] == 1 else 1  # toggle
+        cur.execute("UPDATE notes SET is_pinned = %s WHERE id = %s AND user_id = %s",
+                    (new_status, note_id, user_id))
+        conn.commit()
+        flash("Note pinned! 📌" if new_status == 1 else "Note unpinned.", "success")
+
+    cur.close()
+    conn.close()
+    return redirect('/viewall')
+
 
 # --------------------
 # Run App

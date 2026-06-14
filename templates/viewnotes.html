@@ -1,46 +1,117 @@
 {% extends 'base.html' %}
 {% block title %}All Notes{% endblock %}
 {% block content %}
-<h3 class="mb-4">My Notes</h3>
-<!-- 🔍 SEARCH BAR -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h3 class="mb-0">My Notes</h3>
+
+  <!-- Sort Dropdown -->
+  <div class="dropdown">
+    <button class="btn btn-sort dropdown-toggle" type="button" data-bs-toggle="dropdown">
+      📅 Sort by Date
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end sort-dropdown">
+      <li><a class="dropdown-item sort-item {% if sort == 'newest' %}active-sort{% endif %}"
+             href="/viewall?sort=newest">🆕 Newest First</a></li>
+      <li><a class="dropdown-item sort-item {% if sort == 'oldest' %}active-sort{% endif %}"
+             href="/viewall?sort=oldest">📜 Oldest First</a></li>
+    </ul>
+  </div>
+</div>
+
+<!-- Search Bar -->
 <form method="POST" action="/search" class="mb-4 d-flex">
-    <input type="text" name="query" class="form-control me-2"
-           placeholder="Search notes..." required>
-    <button type="submit" class="btn btn-primary">🔍</button>
-    <a href="/viewall" class="btn btn-secondary ms-2">Reset</a>
+  <input type="text" name="query" class="form-control me-2"
+         placeholder="Search notes..." required>
+  <button type="submit" class="btn btn-primary">🔍</button>
+  <a href="/viewall" class="btn btn-secondary ms-2">Reset</a>
 </form>
 
-<!-- 🔍 SEARCH RESULT TEXT -->
 {% if search_query %}
-    <div class="alert alert-info">
-        Showing results for: <b>{{ search_query }}</b>
-    </div>
+  <div class="alert alert-info">
+    Showing results for: <b>{{ search_query }}</b>
+  </div>
 {% endif %}
 
-<div class="row">
-  {% if notes %}
-    {% for note in notes %}
-      <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow-sm">
-          <div class="card-body d-flex flex-column">
-            <h5 class="card-title">{{ note.title }}</h5>
-            <p class="card-text text-truncate">{{ note.content }}</p>
-            <p class="mt-auto mb-1 text-muted small">{{ note.created_at }}</p>
-            <div class="mt-2">
-              <a class="btn btn-sm btn-primary" href="{{ url_for('viewnotes', note_id=note.id) }}">View</a>
-              <a class="btn btn-sm btn-warning" href="{{ url_for('updatenote', note_id=note.id) }}">Edit</a>
+<!-- Pinned Notes Section -->
+{% set pinned = notes | selectattr('is_pinned', 'equalto', 1) | list %}
+{% set unpinned = notes | selectattr('is_pinned', 'equalto', 0) | list %}
 
-              <!-- Delete uses a POST form for safety -->
-              <form action="{{ url_for('deletenote', note_id=note.id) }}" method="POST" class="d-inline">
-                <button class="btn btn-sm btn-danger" type="submit" onclick="return confirm('Delete this note?')">Delete</button>
-              </form>
-            </div>
+{% if pinned %}
+<div class="mb-2">
+  <span class="section-label">📌 Pinned</span>
+</div>
+<div class="row mb-4">
+  {% for note in pinned %}
+    <div class="col-md-6 col-lg-4 mb-4">
+      <div class="card h-100 pinned-card">
+        <div class="card-body d-flex flex-column">
+
+          <!-- Pin badge -->
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h5 class="card-title mb-0">{{ note.title }}</h5>
+            <span class="pin-badge">📌 Pinned</span>
           </div>
+
+          <p class="card-text text-truncate">{{ note.content }}</p>
+          <p class="mt-auto mb-1 text-muted small">{{ note.created_at }}</p>
+
+          <div class="mt-2 d-flex flex-wrap gap-1">
+            <a class="btn btn-sm btn-info" href="{{ url_for('viewnotes', note_id=note.id) }}">View</a>
+            <a class="btn btn-sm btn-warning" href="{{ url_for('updatenote', note_id=note.id) }}">Edit</a>
+            <form action="{{ url_for('deletenote', note_id=note.id) }}" method="POST" class="d-inline">
+              <button class="btn btn-sm btn-danger" type="submit"
+                      onclick="return confirm('Delete this note?')">Delete</button>
+            </form>
+            <!-- Unpin -->
+            <form action="/pinnote/{{ note.id }}" method="POST" class="d-inline">
+              <button class="btn btn-sm btn-unpin" type="submit">📌 Unpin</button>
+            </form>
+          </div>
+
         </div>
       </div>
-    {% endfor %}
-  {% else %}
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- All / Unpinned Notes Section -->
+{% if unpinned %}
+<div class="mb-2">
+  <span class="section-label">🗒️ Notes</span>
+</div>
+<div class="row">
+  {% for note in unpinned %}
+    <div class="col-md-6 col-lg-4 mb-4">
+      <div class="card h-100">
+        <div class="card-body d-flex flex-column">
+
+          <h5 class="card-title">{{ note.title }}</h5>
+          <p class="card-text text-truncate">{{ note.content }}</p>
+          <p class="mt-auto mb-1 text-muted small">{{ note.created_at }}</p>
+
+          <div class="mt-2 d-flex flex-wrap gap-1">
+            <a class="btn btn-sm btn-info" href="{{ url_for('viewnotes', note_id=note.id) }}">View</a>
+            <a class="btn btn-sm btn-warning" href="{{ url_for('updatenote', note_id=note.id) }}">Edit</a>
+            <form action="{{ url_for('deletenote', note_id=note.id) }}" method="POST" class="d-inline">
+              <button class="btn btn-sm btn-danger" type="submit"
+                      onclick="return confirm('Delete this note?')">Delete</button>
+            </form>
+            <!-- Pin -->
+            <form action="/pinnote/{{ note.id }}" method="POST" class="d-inline">
+              <button class="btn btn-sm btn-pin" type="submit">📌 Pin</button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+  {% if not pinned %}
     <p class="text-muted">No notes yet. <a href="{{ url_for('addnote') }}">Create your first note</a>.</p>
   {% endif %}
-</div>
+{% endif %}
+
 {% endblock %}
