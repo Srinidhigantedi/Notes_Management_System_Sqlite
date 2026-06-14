@@ -3,7 +3,7 @@
 # Comments below explain every step for a beginner.
 
 from flask import Flask, render_template, request, redirect, session, flash, url_for
-import pymysql
+import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mail import Mail, Message
 import os
@@ -37,13 +37,10 @@ def get_db_connection():
     Create and return a new MySQL connection.
     Edit host/user/password/database if yours are different.
     """
-    conn = pymysql.connect(
-        host="localhost",
-        user="root",       # change if your MySQL username is different
-        password="root123",       # enter MySQL password if you have one
-        database="notesdb" # the DB created from the SQL script above
-    )
-    return conn 
+    conn = sqlite3.connect('notesdb.sqlite')
+    conn.row_factory = sqlite3.Row
+    return conn
+    
 
 # --------------------
 # Home (redirect)
@@ -83,7 +80,7 @@ def register():
         cur = conn.cursor()
       
         # Check if username already exists
-        cur.execute("SELECT id FROM users WHERE username = %s", (username,))
+        cur.execute("SELECT id FROM users WHERE username = ?", (username,))
         exists = cur.fetchone()
         
         if exists:
@@ -94,7 +91,7 @@ def register():
             return redirect('/register')
       
         # Insert new user into users table
-        cur.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)",
+        cur.execute("INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
                     (username, email, hashed_pw))
         conn.commit()
         cur.close()
@@ -128,7 +125,7 @@ def login():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+        cur.execute("SELECT * FROM users WHERE username = ?", (username,))
         user = cur.fetchone()
 
         cur.close()
@@ -207,7 +204,7 @@ def forgotpassword():
         hashed_pw = generate_password_hash(password)
 
         cur.execute(
-            "UPDATE users SET password=%s WHERE username=%s",
+            "UPDATE users SET password=? WHERE username=?",
             (hashed_pw, username)
         )
 
@@ -244,7 +241,7 @@ def addnote():
         conn = get_db_connection()
         cur = conn.cursor()
         # Save note with user_id to keep notes private
-        cur.execute("INSERT INTO notes (title, content, user_id) VALUES (%s, %s, %s)",
+        cur.execute("INSERT INTO notes (title, content, user_id) VALUES (?, ?, ?)",
                     (title, content, user_id))
         conn.commit()
         cur.close()
@@ -272,7 +269,7 @@ def viewall():
     cur = conn.cursor()
     cur.execute(f"""
         SELECT id, title, content, created_at, is_pinned
-        FROM notes WHERE user_id = %s
+        FROM notes WHERE user_id = ?
         ORDER BY is_pinned DESC, created_at {order}
     """, (user_id,))
     rows = cur.fetchall()
@@ -302,7 +299,7 @@ def viewnotes(note_id):
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""SELECT id, title, content, created_at, is_pinned
-                   FROM notes WHERE id = %s AND user_id = %s""",
+                   FROM notes WHERE id = ? AND user_id = ?""",
                 (note_id, user_id))
     row = cur.fetchone()
     cur.close()
@@ -329,7 +326,7 @@ def updatenote(note_id):
     cur = conn.cursor()
 
     # Check existence and ownership
-    cur.execute("SELECT id, title, content FROM notes WHERE id = %s AND user_id = %s", (note_id, user_id))
+    cur.execute("SELECT id, title, content FROM notes WHERE id = ? AND user_id = ?", (note_id, user_id))
     row = cur.fetchone()
 
     if row:
@@ -356,7 +353,7 @@ def updatenote(note_id):
             return redirect(url_for('updatenote', note_id=note_id))
 
         # Update query guarded by user_id
-        cur.execute("UPDATE notes SET title = %s, content = %s WHERE id = %s AND user_id = %s",
+        cur.execute("UPDATE notes SET title = ?, content = ? WHERE id = ? AND user_id = ?",
                     (title, content, note_id, user_id))
         conn.commit()
         cur.close()
@@ -382,7 +379,7 @@ def deletenote(note_id):
     conn = get_db_connection()
     cur = conn.cursor()
     # Delete only if the note belongs to the current user
-    cur.execute("DELETE FROM notes WHERE id = %s AND user_id = %s", (note_id, user_id))
+    cur.execute("DELETE FROM notes WHERE id = ? AND user_id = ?", (note_id, user_id))
     conn.commit()
     cur.close()
     conn.close()
@@ -410,8 +407,8 @@ def search():
     cur.execute("""
         SELECT id, title, content, created_at 
         FROM notes 
-        WHERE user_id = %s 
-        AND (title LIKE %s OR content LIKE %s)
+        WHERE user_id = ? 
+        AND (title LIKE ? OR content LIKE ?)
         ORDER BY created_at DESC
     """, (user_id, f"%{query}%", f"%{query}%"))
 
@@ -461,11 +458,11 @@ def edit_profile():
         if file and file.filename != '' and allowed_file(file.filename):
             filename = secure_filename(f"user_{user_id}_{file.filename}")
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            cur.execute("UPDATE users SET username=%s, email=%s, profile_pic=%s WHERE id=%s",
+            cur.execute("UPDATE users SET username=?, email=?, profile_pic=? WHERE id=?",
                         (username, email, filename, user_id))
             session['profile_pic'] = filename
         else:
-            cur.execute("UPDATE users SET username=%s, email=%s WHERE id=%s",
+            cur.execute("UPDATE users SET username=?, email=? WHERE id=?",
                         (username, email, user_id))
 
         conn.commit()
@@ -493,13 +490,13 @@ def pinnote(note_id):
     cur = conn.cursor()
 
     # Check current pin status
-    cur.execute("SELECT is_pinned FROM notes WHERE id = %s AND user_id = %s",
+    cur.execute("SELECT is_pinned FROM notes WHERE id = ? AND user_id = ?",
                 (note_id, user_id))
     row = cur.fetchone()
 
     if row:
         new_status = 0 if row[0] == 1 else 1  # toggle
-        cur.execute("UPDATE notes SET is_pinned = %s WHERE id = %s AND user_id = %s",
+        cur.execute("UPDATE notes SET is_pinned = ? WHERE id = ? AND user_id = ?",
                     (new_status, note_id, user_id))
         conn.commit()
         flash("Note pinned! 📌" if new_status == 1 else "Note unpinned.", "success")
