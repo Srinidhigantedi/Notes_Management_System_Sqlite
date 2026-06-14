@@ -34,10 +34,9 @@ mail = Mail(app)
 # --------------------
 def get_db_connection():
     """
-    Create and return a new MySQL connection.
-    Edit host/user/password/database if yours are different.
+    sqlite3 connection with row factory to return rows as dictionaries for easier access.
     """
-    conn = sqlite3.connect('notesdb.sqlite')
+    conn = sqlite3.connect('notesdb')
     conn.row_factory = sqlite3.Row
     return conn
     
