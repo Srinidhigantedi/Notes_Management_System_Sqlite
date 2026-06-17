@@ -33,12 +33,10 @@ mail = Mail(app)
 # Database Connection Helper
 # --------------------
 def get_db_connection():
-    """
-    sqlite3 connection with row factory to return rows as dictionaries for easier access.
-    """
-    conn = sqlite3.connect('notesdb')
+    conn = sqlite3.connect('notes.db')
     conn.row_factory = sqlite3.Row
     return conn
+   
     
 
 # --------------------
@@ -130,12 +128,12 @@ def login():
         cur.close()
         conn.close()
  
-        if user and check_password_hash(user[3], password):
-            session['user_id'] = user[0]
-            session['username'] = user[1]
-            session['email']    = user[2]
-            session['profile_pic'] = user[4] if user[4] else None  # profile_pic is column index 4
-            flash(f"Welcome, {user[1]}!", "success")
+        if user and check_password_hash(user['password'], password):
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['email'] = user['email']
+            session['profile_pic'] = user['profile_pic']
+            flash(f"Welcome, {user['username']}!", "success")
             return redirect('/viewall')
         else:
             flash("Invalid username or password.", "danger")
@@ -404,32 +402,45 @@ def search():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT id, title, content, created_at 
-        FROM notes 
-        WHERE user_id = ? 
-        AND (title LIKE ? OR content LIKE ?)
-        ORDER BY created_at DESC
-    """, (user_id, f"%{query}%", f"%{query}%"))
+        SELECT id, title, content, created_at, is_pinned
+        FROM notes
+        WHERE user_id = ?
+        AND (
+            LOWER(title) LIKE LOWER(?)
+            OR LOWER(content) LIKE LOWER(?)
+        )
+        ORDER BY is_pinned DESC, created_at DESC
+    """, (
+        user_id,
+        f"%{query}%",
+        f"%{query}%"
+    ))
 
     rows = cur.fetchall()
 
     notes = []
+
     for row in rows:
         notes.append({
-          "id": row[0],
-          "title": row[1],
-          "content": row[2],
-          "created_at": row[3]
-    })
+            "id": row[0],
+            "title": row[1],
+            "content": row[2],
+            "created_at": row[3],
+            "is_pinned": row[4]
+        })
 
     cur.close()
     conn.close()
 
-    # reuse SAME page (better UX)
-    return render_template('viewnotes.html', notes=notes, search_query=query)
+    return render_template(
+        'viewnotes.html',
+        notes=notes,
+        search_query=query,
+        sort='newest'
+    )
 
 
-# ------ filename -----
+# ------ filename -----@
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 

@@ -1,11 +1,21 @@
 import sqlite3
 
-conn = sqlite3.connect("notesdb")
+def init_database():
+    conn = sqlite3.connect('notes.db')
+    cur = conn.cursor()
 
-with open("schema.sql") as f:
-    conn.executescript(f.read())
+    # Read schema.sql file
+    with open('schema.sql', 'r') as f:
+        sql_script = f.read()
 
-conn.commit()
-conn.close()
+    # Execute all SQL commands
+    cur.executescript(sql_script)
 
-print("Database initialized successfully.")
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    print("Database initialized successfully!")
+
+if __name__ == '__main__':
+    init_database()
